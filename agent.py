@@ -9,8 +9,10 @@ Setup:
   2. pip install -r requirements.txt
   3. python agent.py
 
-The agent uses xero-mcp (https://github.com/john-zhang-dev/xero-mcp).
-On first run it will open a browser for Xero OAuth authentication.
+The agent uses the official Xero MCP server
+(https://github.com/XeroAPI/xero-mcp-server).
+It requires a Xero Custom Connection — set one up at:
+https://developer.xero.com/documentation/guides/oauth2/custom-connections/
 """
 
 import anyio
@@ -32,14 +34,14 @@ SYSTEM_PROMPT = """You are a helpful Xero accounting assistant. You have access 
 user's Xero account via MCP tools.
 
 You can help with:
-- Listing and searching invoices, quotes, and payments
+- Listing invoices, quotes, payments, and purchase orders
 - Managing contacts (customers and suppliers)
-- Viewing and creating bank transactions
+- Viewing bank transactions and account balances
 - Financial reports: balance sheet, profit & loss, trial balance
 - Listing accounts, journals, and organisations
+- Payroll information
 
 Guidelines:
-- Always confirm details before creating or modifying records
 - Be precise with amounts, dates, and account codes
 - When listing items, present them clearly in a table or structured format
 - If a request is ambiguous, ask for clarification before proceeding
@@ -47,26 +49,23 @@ Guidelines:
 
 
 def build_mcp_config() -> dict:
-    env = {}
-
     client_id = os.getenv("XERO_CLIENT_ID")
     client_secret = os.getenv("XERO_CLIENT_SECRET")
-    redirect_uri = os.getenv("XERO_REDIRECT_URI", "http://localhost:5000/callback")
 
     if not client_id or not client_secret:
         print(
             "Warning: XERO_CLIENT_ID and XERO_CLIENT_SECRET are not set.\n"
-            "Copy .env.example to .env and fill in your Xero credentials.\n"
+            "Copy .env.example to .env and fill in your Xero Custom Connection credentials.\n"
+            "See: https://developer.xero.com/documentation/guides/oauth2/custom-connections/\n"
         )
-    else:
-        env["XERO_CLIENT_ID"] = client_id
-        env["XERO_CLIENT_SECRET"] = client_secret
-        env["XERO_REDIRECT_URI"] = redirect_uri
 
     return {
         "command": "npx",
-        "args": ["-y", "xero-mcp@latest"],
-        "env": env,
+        "args": ["-y", "@xeroapi/xero-mcp-server@latest"],
+        "env": {
+            "XERO_CLIENT_ID": client_id or "",
+            "XERO_CLIENT_SECRET": client_secret or "",
+        },
     }
 
 
@@ -95,7 +94,7 @@ async def main() -> None:
     print("Examples:")
     print("  - List all unpaid invoices")
     print("  - Show me the balance sheet")
-    print("  - Create a contact for Acme Corp")
+    print("  - Show me the profit and loss report")
     print("  - What bank transactions were posted last week?\n")
 
     while True:
